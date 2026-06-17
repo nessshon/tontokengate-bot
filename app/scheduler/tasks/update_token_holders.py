@@ -106,8 +106,8 @@ async def update_token_holders() -> None:
             logging.error(f"Failed to update holders for {token.name} [{token.address}]")
             continue
 
-        if holders and total_holders == found_holders:
-            logging.info(f"Updated holders for {token.name} [{token.address}]")
+        if holders and found_holders > 0:
+            logging.info(f"Updated holders for {token.name} [{token.address}] (Found: {found_holders}/{total_holders})")
             await TokenDB.update(sessionmaker, primary_key=token.id, holders=holders)
         else:
             logging.error(f"Failed to update holders for {token.name} [{token.address}]")
