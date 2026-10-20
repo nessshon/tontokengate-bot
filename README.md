@@ -1,163 +1,106 @@
-# 🤖 TON Token Access Control Bot
+# 🤖 TON Token Gate
 
+[![License](https://img.shields.io/github/license/nessshon/tontokengate-bot)](https://github.com/nessshon/tontokengate-bot/blob/main/LICENSE)
 [![TON](https://img.shields.io/badge/TON-grey?logo=TON&logoColor=40AEF0)](https://ton.org)
 [![Telegram Bot](https://img.shields.io/badge/Bot-grey?logo=telegram)](https://core.telegram.org/bots)
-[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
-[![License](https://img.shields.io/github/license/nessshon/token-access-control-bot)](https://github.com/nessshon/token-access-control-bot/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Redis](https://img.shields.io/badge/Redis-Yes?logo=redis&color=white)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-blue?logo=docker&logoColor=white)](https://www.docker.com/)
 
-TON Token Access Control Bot is a specialized bot that utilizes NFT tokens and/or Jettons to manage access to your
-private
-Telegram chats. This convenient solution allows you to control who has access to your groups and when, using tokens as
-unique non-transferable identifiers for each participant.
+![TON Token Gate](assets/banner.png)
 
-* Bot example: [@TONTokenAccessControlBot](https://t.me/TONTokenAccessControlBot)
+**TON Token Gate** is a Telegram bot for private chats and channels: it lets in only the holders of your NFT
+collections and jettons and removes members who no longer hold them.
 
-## Features
-
-* **Token Access Control:** Allows access via NFT tokens and Jettons, with customizable token limits.
-
-* **Testnet and Mainnet Support:** Flexible testing and deployment on both networks.
-
-* **TON-Connect Integration:** Ensures a secure and user-friendly experience.
-
-* **User-Friendly Admin Panel:** Built-in panel for easy administration.
-
-* **Multilingual Support:** Supports Russian and English for user interaction.
-
-* **Newsletters to All Users:** Distributes newsletters to all users, including delayed scheduling.
+**Features**:
+* **Token gating.** NFT collections and jettons, each with its own minimum.
+* **Wallet check.** Users connect a wallet with TON Connect and prove they own it.
+* **Regular checks.** Members who sold their tokens are removed.
+* **Languages.** A file per language in [locales](locales); users pick theirs.
 
 ## Usage
 
-<details>
-<summary><b>Preparation and installation</b></summary>
+### Preparation
 
-You need your own server or you can rent one from a hosting provider. For this, check out
-the [Recommended Hosting Provider](#recommended-hosting-provider) section below.
+1. Create a bot via [@BotFather](https://t.me/BotFather) and save its token (`BOT_TOKEN`).
+2. Get your user ID from [What's my Telegram ID?](https://t.me/my_id_bot) (`BOT_ADMIN_ID`).
+3. Recommended: get a Toncenter API key in [@toncenter](https://t.me/toncenter) (`TONCENTER_KEY`). Without it the bot
+   makes 1 request per 1.2 seconds, and checks of large chats are slow.
+4. Optionally, edit the bot texts in [locales](locales) and uncomment the `locales` lines in `compose.yaml`: the bot
+   then reads the texts from the folder, not from the image.
+5. Optionally, add a language the same way: copy `en.toml` to `de.toml` (the language code) and translate it.
 
-1. Create a private group and/or channel.
+### Installation
 
-2. Create a bot via [@BotFather](https://t.me/BotFather) and save the `TOKEN` (later referred to as `BOT_TOKEN`).
+1. Clone the repository:
 
-3. Create an API key on [tonconsole.com](https://tonconsole.com) (later referred to as `TONAPI_KEY`).
+   ```bash
+   git clone https://github.com/nessshon/tontokengate-bot.git
+   ```
 
-4. Clone the repository:
+2. Change into the bot directory:
 
-    ```bash
-    git clone https://github.com/nessshon/token-access-control-bot.git
-    ```
+   ```bash
+   cd tontokengate-bot
+   ```
 
-5. Navigate to the bot directory:
-
-    ```bash
-    cd token-access-control-bot
-    ```
-
-6. Clone the environment variables file:
+3. Copy the environment variables file:
 
    ```bash
    cp .env.example .env
    ```
 
-7. Configure [environment variables](#environment-variables-reference) file:
+4. Configure the [environment variables](#environment-variables-reference) file:
 
    ```bash
    nano .env
    ```
 
-8. Install Docker and Docker Compose:
+5. Start the bot, the ready image is downloaded from GitHub:
 
    ```bash
-   sudo apt install docker.io && apt install docker-compose -y
+   docker compose up -d
    ```
 
-9. Run the bot in a Docker container:
+   Check that it started: `docker compose logs -f bot`.
 
-   ```bash
-   docker-compose up --build
-   ```
-   If you encounter the error:
-   ```log
-   Error while fetching server API version: HTTPConnection.request() got an unexpected keyword argument 'chunked'
-   ```
-   Install the latest version of docker-compose using the following command:
-   ```bash
-   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/bin/docker-compose  && sudo chmod +x /usr/bin/docker-compose
-   ```
-   After the bot is up and running smoothly, you can stop the containers by pressing **Ctrl + C** or **Ctrl + Shift + C
-   ** in the terminal. Then, to restart them in the background, use:
-   ```bash
-   docker-compose up -d
-   ```
+6. In Telegram, send `/start` to the bot and connect a wallet, then add a token in `/admin`.
+7. Add the bot to your group or channel as an admin with the rights to invite and ban users, and confirm the chat in
+   the bot.
+8. Share only the invite link from the bot and revoke the old ones: the bot checks only those who joined by its link.
 
-10. Start the bot with the command `/start`, choose the language, and connect wallet.
+### Updating
 
-11. Access the admin panel with the command `/admin` and add the token.
-
-12. Add the bot to your private chat, ensuring you grant permissions to add administrators. After that, the bot will
-    prompt you to add the chat to the database for monitoring.
-
-13. You're all set!
-
-<blockquote>Customize the bot's texts in the <a href="https://github.com/nessshon/token-access-control-bot/blob/main/app/texts.py">texts</a> file and pictures in the <a href="https://github.com/nessshon/token-access-control-bot/blob/main/app/texts_pics.py">texts_pics</a> file according to your requirements. Additionally, if desired, add your preferred language to <a href="https://github.com/nessshon/token-access-control-bot/blob/main/app/texts.py#L4">SUPPORTED_LANGUAGES</a> and insert the corresponding codes into <a href="https://github.com/nessshon/token-access-control-bot/blob/main/app/texts.py#L9">TEXT_BUTTONS</a> and <a href="https://github.com/nessshon/token-access-control-bot/blob/main/app/texts.py#L54">TEXT_MESSAGES</a>.</blockquote>
-
-</details>
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ## Environment Variables Reference
 
-<details>
-<summary><b>Click to expand</b></summary>
+| Variable             | Description                                                                                                                       | Example                             |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `BOT_TOKEN`          | Bot token from [@BotFather](https://t.me/BotFather)                                                                               | `123456:qweRTY`                     |
+| `BOT_ADMIN_ID`       | User ID of the main admin, who also gets error reports                                                                            | `123456789`                         |
+| `BOT_GROUP_LANGUAGE` | Optional. Language of the bot messages in chats, `ru` by default                                                                  | `en`                                |
+| `DEX_NAME`           | Optional. DEX for buying jettons, `swapcoffee` by default                                                                         | `dedust`, `stonfi` or `swapcoffee`  |
+| `IS_TESTNET`         | `true` for the TON testnet                                                                                                        | `false`                             |
+| `MANIFEST_URL`       | TON Connect manifest; the default one is in `.env.example`                                                                        | `https://example.com/manifest.json` |
+| `WALLETS`            | Optional. Wallets to offer, `app_name` list from [wallets-v2.json](https://config.ton.org/wallets-v2.json), all by default        | `tonkeeper,mytonwallet`             |
+| `TONCENTER_KEY`      | Optional. Toncenter API key                                                                                                       | `AE33E...3FYQ`                      |
+| `TONCENTER_RPS`      | Optional. Requests per second of your Toncenter plan                                                                              | `10`                                |
+| `CHECK_INTERVAL`     | Optional. Minutes between member checks, `5` by default                                                                           | `5`                                 |
+| `REDIS_HOST`         | Redis host                                                                                                                        | `redis`                             |
+| `REDIS_PORT`         | Redis port                                                                                                                        | `6379`                              |
+| `REDIS_DB`           | Redis database number                                                                                                             | `0`                                 |
+| `REDIS_USERNAME`     | Optional. Redis ACL username                                                                                                      | `default`                           |
+| `REDIS_PASSWORD`     | Optional. Redis password                                                                                                          | `p@ss:w/rd`                         |
 
-Here's a comprehensive reference guide for the environment variables used in the project:
-
-| Variable                                  | Type   | Description                                                                                                                                                                                                                   | Example                                                                                             |
-|-------------------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
-| `BOT_TOKEN`                               | `str`  | Bot token obtained from [@BotFather](https://t.me/BotFather)                                                                                                                                                                  | `123456:qweRTY`                                                                                     | 
-| `BOT_DEV_ID`                              | `int`  | User ID of the bot developer, obtain it from [my_id_bot](https://t.me/my_id_bot)                                                                                                                                              | `123456789`                                                                                         |
-| `BOT_ADMIN_ID`                            | `int`  | User ID of the bot admin, obtain it from [my_id_bot](https://t.me/my_id_bot)                                                                                                                                                  | `123456789`                                                                                         |
-| `DEX_NAME`                                | `str`  | The name of the DEX identifying the provider is displayed in the bot for purchasing or viewing tokens                                                                                                                         | `dedust` or `stonfi` or `swapcoffee`                                                                |
-| `IS_TESTNET`                              | `bool` | Set to `True` for TON testnet or `False` for mainnet                                                                                                                                                                          | `False`                                                                                             |
-| `MANIFEST_URL`                            | `str`  | URL of the bot's manifest file                                                                                                                                                                                                | `https://raw.githubusercontent.com/nessshon/token-access-control-bot/main/tonconnect-manifest.json` |
-| `TONAPI_KEY`                              | `str`  | API key for TONAPI, obtain it from [tonconsole.com](https://tonconsole.com)                                                                                                                                                   | `AE33E...3FYQ`                                                                                      |
-| `TONAPI_RPS`                              | `str`  | Specifies the requests per second (RPS) limit for TONAPI to avoid exceeding rate limits and ensure stable performance                                                                                                         | `1`                                                                                                 |
-| `SCHEDULER_CHECK_CHAT_MEMBERS_INTERVAL`   | `int`  | Interval (minutes) for checking chat members (5 minutes is acceptable)                                                                                                                                                        | `5`                                                                                                 |
-| `SCHEDULER_UPDATE_TOKEN_HOLDERS_INTERVAL` | `int`  | Interval (minutes) for updating token holders (adjust value by Jetton holders or NFT elements. Every 1000 tokens or holders equals 1-2 seconds. For instance, for collections with 30k or fewer elements, set the value to 1) | `5`                                                                                                 |
-| `REDIS_HOST`                              | `str`  | Hostname or IP address of the Redis server (set `redis` if you don't have your own Redis server)                                                                                                                              | `redis`                                                                                             |
-| `REDIS_PORT`                              | `int`  | Port number of the Redis server (set `6379` if you don't have your own Redis server)                                                                                                                                          | `6379`                                                                                              |
-| `REDIS_DB`                                | `int`  | Redis database number (set `0` if you don't have your own Redis server)                                                                                                                                                       | `0`                                                                                                 |
-
-</details>
-
-## Recommended Hosting Provider
-
-I recommend using [aeza.net](https://aeza.net/?ref=362599) for your hosting needs. Here's why:
-
-- **24/7 Support**: Quick and effective support via chat or phone.
-- **Promo Plan for €1**: Great for testing Telegram bots and small websites.
-- **Easy Backups**: Secure backups on independent servers.
-- **Hourly Billing**: Rent a server by the hour for testing or demos.
-- **Anti-DDoS Protection**: Reliable and secure internet connection for your business.
-- **Multiple Payment Methods**: Supports various payment methods, including cryptocurrencies like TON.
-
-Learn more at [aeza.net](https://aeza.net/?ref=362599).
-
-## Donations
-
-**TON** - `UQCDrgGaI6gWK-qlyw69xWZosurGxrpRgIgSkVsgahUtxZR0`
-
-**USDT** (TRC-20) - `1FKJDBSxdtsMad84iYY96zLJBVEChehbx1`
 
 ## Contribution
 
-We welcome your contributions! If you have ideas for improvement or have identified a bug, please create an issue or
-submit a pull request.
-
-## Support
-
-Supported by [TON Society](https://github.com/ton-society/grants-and-bounties), Grants and Bounties program.
+We welcome your contributions! If you have ideas for improvement or have identified a bug, please create an issue or submit a pull request.
 
 ## License
 
-This repository is distributed under
-the [MIT License](https://github.com/nessshon/token-access-control-bot/blob/main/LICENSE).
+This repository is distributed under the [MIT License](LICENSE).
