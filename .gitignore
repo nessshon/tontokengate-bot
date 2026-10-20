@@ -143,3 +143,4 @@ data/
 redis/
 .logs/
 .ruff_cache/
+*.sqlite

@@ -18,6 +18,9 @@ collections and jettons and removes members who no longer hold them.
 * **Regular checks.** Members who sold their tokens are removed.
 * **Languages.** A file per language in [locales](locales); users pick theirs.
 
+> [!IMPORTANT]
+> Running 0.x, formerly TON Token Access Control Bot? Follow [Upgrading from 0.x](upgrade/from_v0.md).
+
 ## Usage
 
 ### Preparation

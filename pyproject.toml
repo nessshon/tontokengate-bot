@@ -77,5 +77,5 @@ warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 # redis-py types its commands as `Awaitable[T] | T` for both sync and async clients
-module = ["app.__main__", "app.storage.storage"]
+module = ["app.__main__", "app.storage.storage", "upgrade.from_v0"]
 disable_error_code = ["misc"]
