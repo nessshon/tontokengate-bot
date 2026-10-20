@@ -1,0 +1,314 @@
+language = "🇬🇧 English"
+
+[buttons]
+add = "﹢ Add"
+back = "‹ Back"
+retry = "Retry"
+delete = "× Delete"
+confirm = "✓ Confirm"
+connect_wallet = "Connect {wallet_name}"
+disconnect_wallet = "Disconnect"
+change_language = "Change Language"
+get_access = "Check access availability"
+admins_menu = "Admins"
+chats_menu = "Chats"
+tokens_menu = "Tokens"
+edit_min_amount = "Edit minimum amount"
+
+[messages]
+loader_text = "⏳"
+
+outdated_text = "..."
+
+main_menu = """
+🤖 <b>Welcome!</b>
+
+I am your guide to private chats. Access opens when your wallet holds every token on the list.
+
+<b>Private chats</b>
+{chats}
+
+<b>Required tokens</b>
+{tokens}
+
+<b>Your wallet:</b> {wallet}
+
+Tap “Check access availability”."""
+
+select_language = """
+👋 <b>Hello!</b>
+
+Choose your language:"""
+
+change_language = """
+🌐 <b>Language</b>
+
+Choose your language:"""
+
+deny_access = """
+🔒 <b>Access is closed for now</b>
+
+Your wallet is missing tokens from the list.
+
+You can get them with the buttons below and then check access again."""
+
+deny_access_no_tokens = """
+🔒 <b>Access is closed for now</b>
+
+The admin has not chosen the tokens for entry yet.
+
+Please check back a little later."""
+
+allow_access = """
+🎉 <b>Congratulations!</b>
+
+Access to the private chats is open.
+
+Send a join request with the button below, it will be approved automatically."""
+
+user_kicked = "👮‍♀️ <b>Member removed:</b> {user}"
+
+welcome_to_chat = """
+👋 <b>Welcome,</b> {user_full_name}!
+
+<b>Token balance:</b>
+{balances}"""
+
+welcome_to_chat_no_tokens = "👋 <b>Welcome,</b> {user_full_name}!"
+
+top_holders = """
+🏆 <b>Top holders</b>
+
+{top_holders}"""
+
+top_holders_empty = """
+🏆 <b>Top holders</b>
+
+No bot user holds this token yet."""
+
+top_select_token = """
+🏆 <b>Top holders</b>
+
+Choose a token:"""
+
+balance_command = """
+👤 {user_full_name}
+
+<b>Token balance:</b>
+{balances}"""
+
+balance_command_no_tokens = """
+👤 {user_full_name}
+
+No tokens from the list in the wallet."""
+
+connect_wallet = """
+<b>Connect {wallet_name}</b>
+
+Scan the QR code with your mobile wallet or tap the button below.
+
+The link is valid for 5 minutes."""
+
+connect_wallet_proof_wrong = """
+🔒 <b>Wallet not verified</b>
+
+The wallet signature did not pass the check.
+
+Connect it again."""
+
+connect_wallet_timeout = """
+⌛ <b>Time is up</b>
+
+The connection was not confirmed within 5 minutes.
+
+Tap “Retry” to get a new link."""
+
+connect_wallet_rejected = """
+✋ <b>Connection declined</b>
+
+You cancelled the request in your wallet.
+
+If you changed your mind, tap “Retry”."""
+
+connect_wallet_wrong_network = """
+🌐 <b>Different network</b>
+
+The wallet is connected to another TON network.
+
+Switch the network in your wallet and tap “Retry”."""
+
+connect_wallet_failed = """
+⏳ <b>Could not connect the wallet</b>
+
+Try again in a minute."""
+
+admin_menu = """
+⚙️ <b>Admin panel</b>
+
+Chats, tokens and admins of the bot.
+
+Choose a section:"""
+
+chats_menu = """
+💬 <b>Chats</b>
+
+Chats the bot checks entry to.
+
+Choose a chat or, to add a new one, make the bot an administrator there."""
+
+chat_info = """
+💬 {chat_name}
+
+<b>ID:</b> {chat_id}
+<b>Type:</b> {chat_type}
+<b>Invite:</b> <a href="{chat_invite_link}">link</a>
+<b>Added:</b> {chat_created_at}"""
+
+tokens_menu = """
+💎 <b>Tokens</b>
+
+Access goes to holders of every token on the list.
+
+Choose a token or add a new one."""
+
+token_info = """
+💎 <b>{token_name}</b>
+
+<b>Type:</b> {token_type}
+<b>Address:</b> {token_address}
+<b>Minimum:</b> {token_min_amount}
+<b>Added:</b> {token_created_at}"""
+
+token_send_address = """
+💎 <b>New token</b>
+
+Send the address of an NFT collection or a jetton master contract."""
+
+token_send_address_error = "<i>This is not a TON address.</i>"
+
+token_send_address_error_unavailable = "<i>Could not check the address, try again.</i>"
+
+token_send_address_error_already_exist = "<i>This token is already added.</i>"
+
+token_send_address_error_not_supported = "<i>This is neither an NFT collection nor a jetton.</i>"
+
+token_send_amount = """
+💎 <b>{token_name}</b>
+
+<b>Type:</b> {token_type}
+
+Send the minimum amount for access."""
+
+token_edit_amount = """
+💎 <b>New minimum</b>
+
+Send the minimum amount for access."""
+
+token_send_amount_error = "<i>A positive number is required, for example 1000 or 0.5.</i>"
+
+admins_menu = """
+👥 <b>Admins</b>
+
+They manage chats and tokens in the bot.
+
+Choose an admin or add a new one."""
+
+admin_info = """
+👤 {admin_full_name}
+
+<b>ID:</b> {admin_id}
+<b>Username:</b> {admin_username}
+<b>Added:</b> {admin_created_at}"""
+
+admin_send_id = """
+👥 <b>New admin</b>
+
+Send the user's Telegram ID.
+
+The user must start the bot."""
+
+admin_send_id_error = "<i>{error}</i>"
+
+admin_send_id_error_not_found = "The user has not started the bot yet."
+
+admin_send_id_error_not_member = "An ID is a number, for example 123456789."
+
+confirm_item_add = "➕ <b>Add {item}?</b>"
+
+item_added = "✅ {item} added"
+
+confirm_item_delete = "✖️ <b>Delete {item}?</b>"
+
+item_deleted = "✖️ {item} deleted"
+
+chat_add_error = "Chat not added, try again."
+
+chat_add_rights = "Chat not added. Rights needed: {rights}"
+
+right_can_invite_users = "Invite users via link"
+
+right_can_restrict_members = "Ban users"
+
+chat_rights_missing = """
+⚠️ <b>The bot lacks rights</b>
+
+Chat: {chat}
+Needed: {rights}"""
+
+chat_rights_restored = """
+✅ <b>Rights are back</b>
+
+Chat: {chat}"""
+
+chat_bot_removed = """
+⚠️ <b>The bot was removed from the chat</b>
+
+Chat: {chat}
+
+Add the bot back or delete the chat in /admin."""
+
+chat_check_failed = """
+⏳ <b>Chat not checked</b>
+
+Chat: {chat}
+Error: {error}"""
+
+check_failed = """
+⏳ <b>Could not check the balance</b>
+
+Blockchain data is unavailable right now.
+
+Try again in a couple of minutes."""
+
+[pictures]
+select_language = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/gate.png"
+change_language = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/gate.png"
+main_menu = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/gate.png"
+allow_access = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"
+welcome_to_chat = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"
+welcome_to_chat_no_tokens = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"
+deny_access = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
+user_kicked = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
+deny_access_no_tokens = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
+connect_wallet_rejected = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
+connect_wallet_proof_wrong = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
+connect_wallet_timeout = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
+connect_wallet_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
+connect_wallet_wrong_network = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
+check_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
+chat_rights_missing = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
+chat_rights_restored = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"
+chat_bot_removed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
+chat_check_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
+top_select_token = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/top.png"
+top_holders = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/top.png"
+balance_command = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/balance.png"
+balance_command_no_tokens = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/balance.png"
+admin_menu = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/admin.png"
+admins_menu = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/admin.png"
+admin_info = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/admin.png"
+chats_menu = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/chats.png"
+chat_info = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/chats.png"
+tokens_menu = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/tokens.png"
+token_info = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/tokens.png"
+top_holders_empty = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/top.png"

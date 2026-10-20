@@ -1,0 +1,15 @@
+.env
+.git
+.idea
+.docs
+assets
+.venv
+venv
+redis
+data
+tests
+**/__pycache__
+**/*.py[cod]
+.mypy_cache
+.pytest_cache
+.ruff_cache

@@ -1,44 +1,17 @@
 from aiogram import Dispatcher
-from aiogram_newsletter.middleware import AiogramNewsletterMiddleware
-from aiogram_tonconnect.middleware import AiogramTonConnectMiddleware
-from aiogram_tonconnect.utils.qrcode import QRUrlProvider
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from tonutils.tonconnect import TonConnect
+from aiogram.utils.callback_answer import CallbackAnswerMiddleware
 
-from .database import DBSessionMiddleware
-from .manager import ManagerMiddleware
 from .throttling import ThrottlingMiddleware
-from ..utils.keyboards import AiogramTonconnectInlineKeyboard
-from ..utils.session_manager import TonConnectSessionManager
-from ..utils.texts import AiogramTonconnectTextMessage
-from ...scheduler import Scheduler
+from .user import UserMiddleware
 
 
-def bot_middlewares_register(dp: Dispatcher, **kwargs) -> None:
-    """
-    Register bot middlewares.
-    """
-    scheduler: Scheduler = kwargs["scheduler"]
-    tonconnect: TonConnect = kwargs["tonconnect"]
-    sessionmaker: async_sessionmaker = kwargs["sessionmaker"]
-    tc_session_manager: TonConnectSessionManager = dp["tc_session_manager"]
+def register_middlewares(dp: Dispatcher) -> None:
+    dp.update.outer_middleware.register(UserMiddleware())
 
-    dp.update.outer_middleware.register(
-        AiogramTonConnectMiddleware(
-            tonconnect=tonconnect,
-            text_message=AiogramTonconnectTextMessage,
-            inline_keyboard=AiogramTonconnectInlineKeyboard,
-            qrcode_provider=QRUrlProvider(),
-        )
-    )
-
-    dp.update.outer_middleware.register(DBSessionMiddleware(sessionmaker))
-    dp.update.outer_middleware.register(ThrottlingMiddleware())
-    dp.update.outer_middleware.register(ManagerMiddleware(tc_session_manager))
-
-    dp.update.middleware.register(AiogramNewsletterMiddleware(scheduler.new(2)))
+    throttling_middleware = ThrottlingMiddleware()
+    dp.message.middleware.register(throttling_middleware)
+    dp.callback_query.middleware.register(throttling_middleware)
+    dp.callback_query.middleware.register(CallbackAnswerMiddleware())
 
 
-__all__ = [
-    "bot_middlewares_register",
-]
+__all__ = ["register_middlewares"]

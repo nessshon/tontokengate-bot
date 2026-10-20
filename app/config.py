@@ -1,19 +1,21 @@
-import os
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Union
 
-import environs
-from environs import Env
+from environs import Env, validate
 
-BASE_DIR = Path(__file__).resolve().parent
+from app.texts import SUPPORTED_LANGUAGES
+
+DEX_URLS = {
+    "dedust": "https://dedust.io/swap/GRAM/",
+    "stonfi": "https://app.ston.fi/swap?chartVisible=false&ft=GRAM&tt=",
+    "swapcoffee": "https://swap.coffee/dex?ft=GRAM&st=",
+}
 
 
 @dataclass
 class BotConfig:
     TOKEN: str
-    DEV_ID: int
     ADMIN_ID: int
+    GROUP_LANGUAGE: str
 
 
 @dataclass
@@ -21,93 +23,53 @@ class RedisConfig:
     HOST: str
     PORT: int
     DB: int
-
-    def dsn(self) -> str:
-        """
-        Generates a Redis connection DSN (Data Source Name) using the provided host, port, and database.
-
-        :return: The generated DSN.
-        """
-        return f"redis://{self.HOST}:{self.PORT}/{self.DB}"
+    USERNAME: str | None
+    PASSWORD: str | None
 
 
 @dataclass
-class DatabaseConfig:
-    PATH: str
-    FILENAME: str
-
-    def dsn(self) -> str:
-        """
-        Generates a SQLite connection DSN (Data Source Name) using the provided filename.
-
-        :return: The generated DSN.
-        """
-        if not os.path.exists(self.PATH):
-            os.mkdir(self.PATH)
-        return f"sqlite+aiosqlite:///{self.PATH}/{self.FILENAME}"
-
-
-@dataclass
-class TONAPIConfig:
-    KEY: str
-    RPS: int
-    TONCONNECT_KEY: Union[str, None]
-
-
-@dataclass
-class SchedulerConfig:
-    CHECK_CHAT_MEMBERS_INTERVAL: int
-    UPDATE_TOKEN_HOLDERS_INTERVAL: int
+class IndexerConfig:
+    KEY: str | None
+    RPS: int | None
 
 
 @dataclass
 class Config:
     bot: BotConfig
     redis: RedisConfig
-    database: DatabaseConfig
-    tonapi: TONAPIConfig
-    scheduler: SchedulerConfig
+    indexer: IndexerConfig
 
     DEX_NAME: str
     IS_TESTNET: bool
     MANIFEST_URL: str
+    WALLETS: list[str]
+    CHECK_INTERVAL: int
 
 
 def load_config() -> Config:
     env = Env()
     env.read_env()
 
-    try:
-        tonconnect_key = env.str("TONAPI_TONCONNECT_KEY", None)
-    except environs.EnvValidationError:
-        tonconnect_key = None
-
     return Config(
         bot=BotConfig(
             TOKEN=env.str("BOT_TOKEN"),
-            DEV_ID=env.int("BOT_DEV_ID"),
             ADMIN_ID=env.int("BOT_ADMIN_ID"),
+            GROUP_LANGUAGE=env.str("BOT_GROUP_LANGUAGE", "ru", validate=validate.OneOf(SUPPORTED_LANGUAGES)),
         ),
         redis=RedisConfig(
             HOST=env.str("REDIS_HOST"),
             PORT=env.int("REDIS_PORT"),
             DB=env.int("REDIS_DB"),
+            USERNAME=env.str("REDIS_USERNAME", None) or None,
+            PASSWORD=env.str("REDIS_PASSWORD", None) or None,
         ),
-        database=DatabaseConfig(
-            PATH=f"{BASE_DIR}/db/data",
-            FILENAME="database.sqlite",
+        indexer=IndexerConfig(
+            KEY=env.str("TONCENTER_KEY", None) or None,
+            RPS=env.int("TONCENTER_RPS", None, validate=validate.Range(min=1)),
         ),
-        tonapi=TONAPIConfig(
-            KEY=env.str("TONAPI_KEY"),
-            RPS=env.int("TONAPI_RPS"),
-            TONCONNECT_KEY=tonconnect_key,
-        ),
-        scheduler=SchedulerConfig(
-            CHECK_CHAT_MEMBERS_INTERVAL=env.int("SCHEDULER_CHECK_CHAT_MEMBERS_INTERVAL"),
-            UPDATE_TOKEN_HOLDERS_INTERVAL=env.int("SCHEDULER_UPDATE_TOKEN_HOLDERS_INTERVAL"),
-        ),
-
-        DEX_NAME=env.str("DEX_NAME"),
+        DEX_NAME=env.str("DEX_NAME", "", validate=validate.OneOf(["", *DEX_URLS])) or "swapcoffee",
         IS_TESTNET=env.bool("IS_TESTNET"),
         MANIFEST_URL=env.str("MANIFEST_URL"),
+        WALLETS=[name.strip() for name in env.list("WALLETS", [], subcast=str)],
+        CHECK_INTERVAL=env.int("CHECK_INTERVAL", 5, validate=validate.Range(min=1)),
     )

@@ -132,3 +132,14 @@ dmypy.json
 # Ignore .idea files
 .idea/
 .idea/*
+
+# Local notes and tests
+.docs/
+CLAUDE.md
+tests/
+
+# Bot data
+data/
+redis/
+.logs/
+.ruff_cache/

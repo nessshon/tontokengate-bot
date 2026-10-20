@@ -1,172 +1,127 @@
 import asyncio
 import logging
+from contextlib import suppress
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram_tonconnect.tonconnect.storage import ATCRedisStorage
-from pytonapi import AsyncTonapi
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from tonutils.tonconnect import TonConnect
+from ton_connect import AppWalletsLoader, Event, MemoryStorage, TonConnect
+from ton_core import load_json
 
 from .bot.commands import (
-    bot_commands_setup,
-    bot_commands_delete,
-    bot_admin_commands_setup,
     bot_admin_commands_delete,
+    bot_admin_commands_setup,
+    bot_commands_delete,
+    bot_commands_setup,
 )
-from .bot.handlers import bot_routers_include
-from .bot.middlewares import bot_middlewares_register
-from .bot.utils.session_manager import TonConnectSessionManager
+from .bot.handlers import include_routers
+from .bot.handlers.private.wallet import manifest_domain, on_connect, on_error
+from .bot.middlewares import register_middlewares
+from .bot.middlewares.retry_after import RetryMiddleware
 from .config import Config, load_config
-from .db.models import Base, AdminDB
-from .logger import setup_logger
-from .scheduler import Scheduler
+from .gate import run_checks
+from .indexer import Indexer
+from .storage import Storage
+
+logger = logging.getLogger(__name__)
+
+WALLETS_FALLBACK = Path(__file__).parents[1] / "data" / "wallets.json"
 
 
 async def on_startup(
-        dispatcher: Dispatcher,
-        bot: Bot,
-        config: Config,
-        tonapi: AsyncTonapi,
-        redis: Redis,
-        scheduler: Scheduler,
-        engine: AsyncEngine,
-        sessionmaker: async_sessionmaker,
-        tonconnect: TonConnect,
-        tc_session_manager: TonConnectSessionManager,
+    dispatcher: Dispatcher,
+    bot: Bot,
+    config: Config,
+    storage: Storage,
+    indexer: Indexer,
 ) -> None:
-    """
-    Startup event handler. This runs when the bot starts up.
-    """
-    loop = asyncio.get_event_loop()
-    loop.__setattr__("dispatcher", dispatcher)
-    loop.__setattr__("bot", bot)
-    loop.__setattr__("config", config)
-    loop.__setattr__("tonapi", tonapi)
-    loop.__setattr__("tonconnect", tonconnect)
-    loop.__setattr__("sessionmaker", sessionmaker)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    bot_middlewares_register(
-        dispatcher,
-        redis=redis,
-        config=config,
-        scheduler=scheduler,
-        sessionmaker=sessionmaker,
-        tonconnect=tonconnect,
-    )
-    bot_routers_include(dispatcher)
-
-    scheduler.run()
-    tc_session_manager.run()
-
-    admins_ids = await AdminDB.get_all_ids(sessionmaker, config)
+    admins_ids = await storage.admin_ids(config.bot.ADMIN_ID)
     await bot_commands_setup(bot)
     await bot_admin_commands_setup(bot, admins_ids)
 
+    dispatcher["checks"] = asyncio.create_task(run_checks(bot, config, storage, indexer))
+
 
 async def on_shutdown(
-        bot: Bot,
-        config: Config,
-        scheduler: Scheduler,
-        engine: AsyncEngine,
-        sessionmaker: async_sessionmaker,
-        tc_session_manager: TonConnectSessionManager,
+    dispatcher: Dispatcher,
+    bot: Bot,
+    config: Config,
+    storage: Storage,
+    tonconnect: TonConnect,
 ) -> None:
-    """
-    Shutdown event handler. This runs when the bot shuts down.
-    """
-    admins_ids = await AdminDB.get_all_ids(sessionmaker, config)
-
+    checks: asyncio.Task[None] = dispatcher["checks"]
+    checks.cancel()
+    with suppress(asyncio.CancelledError):
+        await checks
+    await tonconnect.close_all()
+    admins_ids = await storage.admin_ids(config.bot.ADMIN_ID)
     await bot_commands_delete(bot)
     await bot_admin_commands_delete(bot, admins_ids)
-    await bot.delete_webhook()
-    await bot.session.close()
-    await engine.dispose()
-
-    scheduler.shutdown()
-    tc_session_manager.stop()
 
 
 async def main() -> None:
-    """
-    Main function that initializes the bot and starts the event loop.
-    """
     config = load_config()
+    redis = Redis(
+        host=config.redis.HOST,
+        port=config.redis.PORT,
+        db=config.redis.DB,
+        username=config.redis.USERNAME,
+        password=config.redis.PASSWORD,
+        decode_responses=True,
+    )
+    await redis.ping()
 
-    scheduler = Scheduler(config=config)
+    bot = Bot(token=config.bot.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot.session.middleware(RetryMiddleware())
+    indexer = Indexer(config.indexer.KEY, config.indexer.RPS, config.IS_TESTNET)
 
-    tonapi = AsyncTonapi(
-        config.tonapi.KEY,
-        is_testnet=config.IS_TESTNET,
-        max_retries=5,
-    )
+    dp = Dispatcher(storage=RedisStorage(redis), config=config, indexer=indexer)
+    # Dispatcher(storage=...) is the FSM storage, so the bot data goes in separately
+    dp["storage"] = Storage(redis)
 
-    engine = create_async_engine(
-        config.database.dsn(),
-        pool_pre_ping=True,
+    loader = AppWalletsLoader(
+        include_wallets=config.WALLETS,
+        order_wallets=config.WALLETS,
+        fallback_path=WALLETS_FALLBACK,
     )
-    sessionmaker = async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-    storage = RedisStorage.from_url(
-        url=config.redis.dsn(),
-    )
-    tonconnect = TonConnect(
-        storage=ATCRedisStorage(storage.redis),
-        manifest_url=config.MANIFEST_URL,
-        api_tokens={"tonapi": config.tonapi.TONCONNECT_KEY},
-    )
-    tc_session_manager = TonConnectSessionManager(
-        redis=storage.redis,
-        tc=tonconnect,
-        session_lifetime=1800,
-        check_interval=600,
-    )
+    # A Telegram button opens a wallet only by its universal link
+    wallets = [wallet for wallet in await asyncio.to_thread(loader.get_wallets) if wallet.universal_url]
+    if unknown := set(config.WALLETS) - {wallet.app_name for wallet in wallets}:
+        logger.warning("WALLETS not in the catalog or without a universal link: %s", ", ".join(sorted(unknown)))
+    if not wallets:
+        raise ValueError("WALLETS has no wallet from https://config.ton.org/wallets-v2.json")
 
-    bot = Bot(
-        token=config.bot.TOKEN,
-        default=DefaultBotProperties(
-            parse_mode=ParseMode.HTML,
-        ),
-    )
-    dp = Dispatcher(
-        bot=bot,
-        storage=storage,
-        config=config,
-        redis=storage.redis,
-        engine=engine,
-        sessionmaker=sessionmaker,
-        scheduler=scheduler,
-        tonapi=tonapi,
-        tonconnect=tonconnect,
-        tc_session_manager=tc_session_manager,
-    )
+    try:
+        manifest = await asyncio.to_thread(load_json, config.MANIFEST_URL)
+    except RuntimeError as ex:
+        raise ValueError(f"MANIFEST_URL is not readable, put the manifest where the bot can load it: {ex}") from ex
+    dp["proof_domain"] = manifest_domain(config.MANIFEST_URL, manifest)
 
-    # Register startup handler
+    tonconnect = dp["tonconnect"] = TonConnect(MemoryStorage(), config.MANIFEST_URL, wallets, dispatcher=dp, bot=bot)
+    tonconnect.register(Event.CONNECT, on_connect)
+    tonconnect.register(Event.ERROR, on_error)
+
     dp.startup.register(on_startup)
-    # Register shutdown handler
     dp.shutdown.register(on_shutdown)
+    # Dispatcher registers closing its FSM storage, and with it the shared Redis, before any other shutdown handler
+    dp.shutdown.handlers.insert(0, dp.shutdown.handlers.pop())
+    register_middlewares(dp)
+    include_routers(dp)
 
-    # Start the bot
-    await bot.delete_webhook()
-    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    await indexer.start()
+    try:
+        await bot.delete_webhook()
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    finally:
+        await indexer.close()
+        await redis.aclose()
 
 
 if __name__ == "__main__":
-    # Setup logging
-    setup_logger(logging.INFO)
-    # Run the bot
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    # One INFO line per update floods the log; handler failures still come through as ERROR
+    logging.getLogger("aiogram.event").setLevel(logging.WARNING)
     asyncio.run(main())

@@ -1,0 +1,30 @@
+services:
+  bot:
+    image: ghcr.io/nessshon/tontokengate-bot:1
+    build: .
+    container_name: tontokengate-bot
+    restart: always
+    env_file: .env
+    depends_on:
+      - redis
+    # Your own texts: uncomment to use the locales folder instead of the texts in the image
+    # volumes:
+    #   - ./locales:/app/locales
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+  redis:
+    image: redis:8-alpine
+    container_name: tontokengate-redis
+    # Every change is written to disk: members and balances survive a server crash
+    command: redis-server --appendonly yes
+    restart: always
+    volumes:
+      - ./redis/data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

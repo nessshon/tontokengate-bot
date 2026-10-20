@@ -1,330 +1,224 @@
-from aiogram.types import User
-from aiogram.utils.markdown import hcode, hbold
-from pytonapi.exceptions import TONAPIError
-from pytonapi.schema.accounts import Account
-from pytonapi.schema.jettons import JettonInfo
-from pytonapi.schema.nft import NftCollection
+from aiogram import html
+from aiogram.utils.markdown import hbold, hcode
 
+from app.bot import keyboards
+from app.bot.keyboards import AdminCallback, ChatCallback, PageCallback, TokenCallback
 from app.bot.manager import Manager, SendMode
-from app.bot.utils import keyboards, amount_string
-from app.bot.utils.states import AdminState
-from app.bot.utils.urls import TonviewerUrl
-from app.db.models import ChatDB, TokenDB, AdminDB
+from app.bot.states import AdminState
+from app.bot.utils import date_string, paginate, token_amount, tonviewer_link
+from app.storage import AdminData, ChatData, TokenData
+
+PAGE_SIZE = 5
 
 
-class AdminWindow:
+async def current_page(manager: Manager, page: int | None) -> int:
+    if page is None:
+        return int((await manager.state.get_data()).get("page", 1))
+    await manager.state.update_data(page=page)
+    return page
 
-    @staticmethod
-    async def admin_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT, **_) -> None:
-        text = manager.text_message.get("admin_menu")
-        reply_markup = keyboards.admin_menu(manager.text_button)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMIN_MENU)
+async def selected_chat(manager: Manager) -> ChatData | None:
+    chat_id = (await manager.state.get_data()).get("chat_id")
+    return None if chat_id is None else await manager.storage.get_chat(chat_id)
 
-    @staticmethod
-    async def chats_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        page, page_size = state_data.get("page", 1), 5
-        db_items = await ChatDB.paginate(
-            manager.sessionmaker,
-            page_number=page,
-            page_size=page_size,
-            order_by=ChatDB.id.desc(),
-        )
-        total_pages = await ChatDB.total_pages(
-            manager.sessionmaker,
-            page_size=page_size,
-        )
-        pagination = keyboards.InlineKeyboardPaginator(
-            [(i.name, i.id) for i in db_items],
-            current_page=page,
-            total_pages=total_pages,
-            after_reply_markup=keyboards.back(manager.text_button),
-        )
-        text = manager.text_message.get("chats_menu")
-        reply_markup = pagination.as_markup()
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.CHATS_MENU)
+async def selected_token(manager: Manager) -> TokenData | None:
+    address = (await manager.state.get_data()).get("token_address")
+    return None if address is None else await manager.storage.get_token(address)
 
-    @staticmethod
-    async def chat_info(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        chat = await ChatDB.get(manager.sessionmaker, state_data.get("chat_id"))
 
-        text = manager.text_message.get("chat_info").format(
-            chat_id=hcode(chat.id),
-            chat_type=chat.type,
-            chat_name=hbold(chat.name),
-            chat_invite_link=chat.invite_link,
-            chat_created_at=hcode(chat.created_at.strftime("%Y-%m-%d %H:%M")),
-        )
-        reply_markup = keyboards.back_delete(manager.text_button)
+async def selected_admin(manager: Manager) -> AdminData | None:
+    user_id = (await manager.state.get_data()).get("admin_id")
+    return None if user_id is None else await manager.storage.get_admin(user_id)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.CHAT_INFO)
 
-    @staticmethod
-    async def chat_confirm_delete(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
+def with_note(text: str, note: str | None) -> str:
+    return f"{text}\n\n{note}" if note else text
 
-        chat = await ChatDB.get(manager.sessionmaker, state_data.get("chat_id"))
-        text = manager.text_message.get("confirm_item_delete").format(
-            item=chat.name, table=ChatDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.CHAT_CONFIRM_DELETE)
+async def admin_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
+    text = manager.text_message.get("admin_menu")
+    await manager.send_message(text, reply_markup=keyboards.admin_menu(manager.text_button), send_mode=send_mode)
+    await manager.state.set_state(AdminState.ADMIN_MENU)
 
-    @staticmethod
-    async def chat_confirm_add(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        chat = state_data.get("chat")
 
-        text = manager.text_message.get("confirm_item_add").format(
-            item=chat["name"], table=ChatDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
+async def chats_menu(manager: Manager, page: int | None = None) -> None:
+    page = await current_page(manager, page)
+    chats, total_pages = paginate(await manager.storage.chats(), page, PAGE_SIZE)
+    reply_markup = keyboards.paginated(
+        [(chat.name, ChatCallback(id=chat.id)) for chat in chats],
+        page,
+        total_pages,
+        lambda number: PageCallback(number=number),
+        footer=keyboards.back(manager.text_button),
+    )
+    await manager.send_message(manager.text_message.get("chats_menu"), reply_markup=reply_markup)
+    await manager.state.set_state(AdminState.CHATS_MENU)
 
-        msg = await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.update_data(message_id=msg.message_id)
-        await manager.state.set_state(AdminState.CHAT_CONFIRM_ADD)
 
-    @staticmethod
-    async def tokens_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        page, page_size = state_data.get("page", 1), 5
-        db_items = await TokenDB.paginate(
-            manager.sessionmaker,
-            page_number=page,
-            page_size=page_size,
-            order_by=TokenDB.id.desc(),
-        )
-        total_pages = await TokenDB.total_pages(
-            manager.sessionmaker,
-            page_size=page_size,
-        )
-        pagination = keyboards.InlineKeyboardPaginator(
-            [(i.name, i.id) for i in db_items],
-            current_page=page,
-            total_pages=total_pages,
-            after_reply_markup=keyboards.back_add(manager.text_button),
-        )
-        text = manager.text_message.get("tokens_menu")
-        reply_markup = pagination.as_markup()
+async def chat_info(manager: Manager) -> None:
+    chat = await selected_chat(manager)
+    if chat is None:
+        await chats_menu(manager)
+        return
+    text = manager.text_message.get("chat_info").format(
+        chat_id=hcode(chat.id),
+        chat_type=chat.type,
+        chat_name=hbold(chat.name),
+        chat_invite_link=chat.invite_link,
+        chat_created_at=hcode(date_string(chat.created_at)),
+    )
+    await manager.send_message(text, reply_markup=keyboards.back_delete(manager.text_button))
+    await manager.state.set_state(AdminState.CHAT_INFO)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKENS_MENU)
 
-    @staticmethod
-    async def token_info(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        token = await TokenDB.get(manager.sessionmaker, state_data.get("token_id"))
+async def chat_confirm_delete(manager: Manager) -> None:
+    chat = await selected_chat(manager)
+    if chat is None:
+        await chats_menu(manager)
+        return
+    text = manager.text_message.get("confirm_item_delete").format(item=html.quote(chat.name))
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button))
+    await manager.state.set_state(AdminState.CHAT_CONFIRM_DELETE)
 
-        tonviewer_url = TonviewerUrl(token.address, token.name)
 
-        if token.type == token.Type.NFTCollection:
-            token_min_amount = token.min_amount
-        else:
-            token_min_amount = amount_string(token.min_amount, token.decimals)
+async def chat_confirm_add(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
+    chat = (await manager.state.get_data()).get("chat")
+    if chat is None:
+        await chats_menu(manager)
+        return
+    text = manager.text_message.get("confirm_item_add").format(item=html.quote(chat["name"]))
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button), send_mode=send_mode)
+    await manager.state.set_state(AdminState.CHAT_CONFIRM_ADD)
 
-        text = manager.text_message.get("token_info").format(
-            token_name=token.name,
-            token_type=token.type,
-            token_min_amount=token_min_amount,
-            token_address=tonviewer_url.hlink_short,
-            token_created_at=token.created_at.strftime("%Y-%m-%d %H:%M"),
-        )
-        reply_markup = keyboards.token_info(manager.text_button)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_INFO)
+async def tokens_menu(manager: Manager, page: int | None = None) -> None:
+    page = await current_page(manager, page)
+    tokens, total_pages = paginate(await manager.storage.tokens(), page, PAGE_SIZE)
+    reply_markup = keyboards.paginated(
+        [(token.name, TokenCallback(address=token.address)) for token in tokens],
+        page,
+        total_pages,
+        lambda number: PageCallback(number=number),
+        footer=keyboards.back_add(manager.text_button),
+    )
+    await manager.send_message(manager.text_message.get("tokens_menu"), reply_markup=reply_markup)
+    await manager.state.set_state(AdminState.TOKENS_MENU)
 
-    @staticmethod
-    async def token_confirm_delete(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
 
-        token = await TokenDB.get(manager.sessionmaker, state_data.get("token_id"))
-        text = manager.text_message.get("confirm_item_delete").format(
-            item=token.name, table=TokenDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
+async def token_info(manager: Manager) -> None:
+    token = await selected_token(manager)
+    if token is None:
+        await tokens_menu(manager)
+        return
+    text = manager.text_message.get("token_info").format(
+        token_name=html.quote(token.name),
+        token_type=token.type,
+        token_min_amount=token_amount(token, token.min_amount),
+        token_address=tonviewer_link(token.address),
+        token_created_at=date_string(token.created_at),
+    )
+    await manager.send_message(text, reply_markup=keyboards.token_info(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_INFO)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_CONFIRM_DELETE)
 
-    @staticmethod
-    async def token_send_address(
-            manager: Manager,
-            additional_text: str = None,
-            send_mode: SendMode = SendMode.EDIT,
-    ) -> None:
-        text = manager.text_message.get("token_send_address")
-        if additional_text:
-            text += f"\n\n{additional_text}"
-        reply_markup = keyboards.back(manager.text_button)
+async def token_confirm_delete(manager: Manager) -> None:
+    token = await selected_token(manager)
+    if token is None:
+        await tokens_menu(manager)
+        return
+    text = manager.text_message.get("confirm_item_delete").format(item=html.quote(token.name))
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_CONFIRM_DELETE)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_SEND_ADDRESS)
 
-    @staticmethod
-    async def token_send_amount(
-            manager: Manager,
-            additional_text: str = None,
-            send_mode: SendMode = SendMode.EDIT,
-    ) -> None:
-        state_data = await manager.state.get_data()
-        account = Account(**state_data.get("account"))
+async def token_send_address(manager: Manager, note: str | None = None) -> None:
+    text = with_note(manager.text_message.get("token_send_address"), note)
+    await manager.send_message(text, reply_markup=keyboards.back(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_SEND_ADDRESS)
 
-        token_type = state_data.get("token_type")
-        if token_type == TokenDB.Type.JettonMaster:
-            token = JettonInfo(**state_data.get("token"))
-            if not token.metadata:
-                raise TONAPIError("TONAPI Error: Token metadata not indexed.")
-            token_name = f"{token.metadata.name} [{token.metadata.symbol}]"
-        else:
-            token = NftCollection(**state_data.get("token"))
-            if not token.metadata:
-                raise TONAPIError("TONAPI Error: Token metadata not indexed.")
-            token_name = token.metadata.get("name", "Unknown Collection")
 
-        tonviewer_url = TonviewerUrl(account.address.to_userfriendly(True), token_name)
-        text = manager.text_message.get("token_send_amount").format(
-            token_name=tonviewer_url.hlink_name,
-            token_type=token_type,
-        )
-        if additional_text:
-            text += f"\n\n{additional_text}"
-        reply_markup = keyboards.back(manager.text_button)
+async def token_send_amount(manager: Manager, note: str | None = None) -> None:
+    token = (await manager.state.get_data()).get("token")
+    if token is None:
+        await token_send_address(manager)
+        return
+    text = manager.text_message.get("token_send_amount").format(
+        token_name=tonviewer_link(token["address"], token["name"]),
+        token_type=token["type"],
+    )
+    await manager.send_message(with_note(text, note), reply_markup=keyboards.back(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_SEND_AMOUNT)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_SEND_AMOUNT)
 
-    @staticmethod
-    async def token_confirm_add(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        account = Account(**state_data.get("account"))
+async def token_confirm_add(manager: Manager) -> None:
+    token = (await manager.state.get_data()).get("token")
+    if token is None:
+        await token_send_address(manager)
+        return
+    item = tonviewer_link(token["address"], token["name"])
+    text = manager.text_message.get("confirm_item_add").format(item=item)
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_CONFIRM_ADD)
 
-        token_type = state_data.get("token_type")
-        if token_type == TokenDB.Type.JettonMaster:
-            token = JettonInfo(**state_data.get("token"))
-            token_name = f"{token.metadata.name} [{token.metadata.symbol}]"
-        else:
-            token = NftCollection(**state_data.get("token"))
-            token_name = token.metadata.get("name", "Unknown Collection")
-        tonviewer_url = TonviewerUrl(account.address.to_userfriendly(True), token_name)
 
-        text = manager.text_message.get("confirm_item_add").format(
-            item=tonviewer_url.hlink_name, table=TokenDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
+async def token_edit_amount(manager: Manager, note: str | None = None) -> None:
+    text = with_note(manager.text_message.get("token_edit_amount"), note)
+    await manager.send_message(text, reply_markup=keyboards.back(manager.text_button))
+    await manager.state.set_state(AdminState.TOKEN_EDIT_AMOUNT)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_CONFIRM_ADD)
 
-    @staticmethod
-    async def token_edit_amount(
-            manager: Manager,
-            additional_text: str = None,
-            send_mode: SendMode = SendMode.EDIT
-    ) -> None:
-        text = manager.text_message.get("token_edit_amount")
-        if additional_text:
-            text += f"\n\n{additional_text}"
-        reply_markup = keyboards.back(manager.text_button)
+async def admins_menu(manager: Manager, page: int | None = None) -> None:
+    page = await current_page(manager, page)
+    admins, total_pages = paginate(await manager.storage.admins(), page, PAGE_SIZE)
+    reply_markup = keyboards.paginated(
+        [(admin.full_name, AdminCallback(user_id=admin.user_id)) for admin in admins],
+        page,
+        total_pages,
+        lambda number: PageCallback(number=number),
+        footer=keyboards.back_add(manager.text_button),
+    )
+    await manager.send_message(manager.text_message.get("admins_menu"), reply_markup=reply_markup)
+    await manager.state.set_state(AdminState.ADMINS_MENU)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.TOKEN_EDIT_AMOUNT)
 
-    @staticmethod
-    async def admins_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        page, page_size = state_data.get("page", 1), 5
-        items = await AdminDB.paginate(
-            manager.sessionmaker,
-            page_number=page,
-            page_size=page_size,
-            order_by=AdminDB.id.desc(),
-            join_tables=[AdminDB.user],
-        )
-        total_pages = await AdminDB.total_pages(
-            manager.sessionmaker,
-            page_size=page_size,
-        )
-        pagination = keyboards.InlineKeyboardPaginator(
-            [(i.user.full_name, i.id) for i in items],
-            current_page=page,
-            total_pages=total_pages,
-            after_reply_markup=keyboards.back_add(manager.text_button),
-        )
-        reply_markup = pagination.as_markup()
-        text = manager.text_message.get("admins_menu")
+async def admin_info(manager: Manager) -> None:
+    admin = await selected_admin(manager)
+    if admin is None:
+        await admins_menu(manager)
+        return
+    text = manager.text_message.get("admin_info").format(
+        admin_id=hcode(admin.user_id),
+        admin_username=admin.username or "N/A",
+        admin_full_name=hbold(admin.full_name),
+        admin_created_at=hcode(date_string(admin.created_at)),
+    )
+    await manager.send_message(text, reply_markup=keyboards.back_delete(manager.text_button))
+    await manager.state.set_state(AdminState.ADMIN_INFO)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMINS_MENU)
 
-    @staticmethod
-    async def admin_info(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        admin = await AdminDB.get_with_join(
-            manager.sessionmaker,
-            primary_key=state_data.get("admin_id"),
-            join_tables=[AdminDB.user],
-        )
+async def admin_confirm_delete(manager: Manager) -> None:
+    admin = await selected_admin(manager)
+    if admin is None:
+        await admins_menu(manager)
+        return
+    text = manager.text_message.get("confirm_item_delete").format(item=html.quote(admin.full_name))
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button))
+    await manager.state.set_state(AdminState.ADMIN_CONFIRM_DELETE)
 
-        text = manager.text_message.get("admin_info").format(
-            admin_id=hcode(admin.user.id),
-            admin_username=admin.user.username,
-            admin_full_name=hbold(admin.user.full_name),
-            admin_created_at=hcode(admin.created_at.strftime("%Y-%m-%d %H:%M")),
-        )
-        reply_markup = keyboards.back_delete(manager.text_button)
 
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMIN_INFO)
+async def admin_send_id(manager: Manager, note: str | None = None) -> None:
+    text = with_note(manager.text_message.get("admin_send_id"), note)
+    await manager.send_message(text, reply_markup=keyboards.back(manager.text_button))
+    await manager.state.set_state(AdminState.ADMIN_SEND_ID)
 
-    @staticmethod
-    async def admin_confirm_delete(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        admin = await AdminDB.get_with_join(
-            manager.sessionmaker,
-            primary_key=state_data.get("admin_id"),
-            join_tables=[AdminDB.user],
-        )
 
-        text = manager.text_message.get("confirm_item_delete").format(
-            item=admin.user.full_name, table=AdminDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
-
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMIN_CONFIRM_DELETE)
-
-    @staticmethod
-    async def admin_send_id(
-            manager: Manager,
-            additional_text: str = None,
-            send_mode: SendMode = SendMode.EDIT,
-    ) -> None:
-        text = manager.text_message.get("admin_send_id")
-        if additional_text:
-            text += f"\n\n{additional_text}"
-        reply_markup = keyboards.back(manager.text_button)
-
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMIN_SEND_ID)
-
-    @staticmethod
-    async def admin_confirm_add(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:
-        state_data = await manager.state.get_data()
-        user = User(**state_data.get("user"))
-
-        text = manager.text_message.get("confirm_item_add").format(
-            item=user.full_name, table=AdminDB.__tablename__.title(),
-        )
-        reply_markup = keyboards.back_confirm(manager.text_button)
-
-        await manager.send_message(text, reply_markup=reply_markup, send_mode=send_mode)
-        await manager.state.set_state(AdminState.ADMIN_CONFIRM_ADD)
+async def admin_confirm_add(manager: Manager) -> None:
+    admin = (await manager.state.get_data()).get("admin")
+    if admin is None:
+        await admin_send_id(manager)
+        return
+    text = manager.text_message.get("confirm_item_add").format(item=html.quote(admin["full_name"]))
+    await manager.send_message(text, reply_markup=keyboards.back_confirm(manager.text_button))
+    await manager.state.set_state(AdminState.ADMIN_CONFIRM_ADD)
