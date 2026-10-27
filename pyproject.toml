@@ -1,6 +1,6 @@
 [project]
 name = "tontokengate-bot"
-version = "1.0.0"
+version = "1.1.0"
 description = "Telegram bot that grants access to private chats by TON jettons and NFTs."
 requires-python = ">=3.12,<3.15"
 authors = [
