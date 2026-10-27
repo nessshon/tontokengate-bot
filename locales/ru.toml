@@ -3,7 +3,6 @@ language = "🇷🇺 Русский"
 [buttons]
 add = "﹢ Добавить"
 back = "‹ Назад"
-retry = "Повторить"
 delete = "× Удалить"
 confirm = "✓ Подтвердить"
 connect_wallet = "Подключить {wallet_name}"
@@ -16,6 +15,7 @@ tokens_menu = "Токены"
 edit_min_amount = "Изменить минимальную сумму"
 
 [messages]
+any_wallet = "ваш кошелёк"
 loader_text = "⏳"
 
 outdated_text = "..."
@@ -121,21 +121,26 @@ connect_wallet_timeout = """
 
 Подключение не было подтверждено за 5 минут.
 
-Нажмите «Повторить», чтобы получить новую ссылку."""
+Вернитесь назад, чтобы получить новую ссылку."""
 
 connect_wallet_rejected = """
 ✋ <b>Подключение отклонено</b>
 
 Вы отменили запрос в кошельке.
 
-Если передумали, нажмите «Повторить»."""
+Если передумали, вернитесь назад и подключите заново."""
 
 connect_wallet_wrong_network = """
 🌐 <b>Другая сеть</b>
 
 Кошелёк подключён к другой сети TON.
 
-Переключите сеть в кошельке и нажмите «Повторить»."""
+Переключите сеть в кошельке и подключите заново."""
+
+connect_wallet_bad_manifest = """
+⚙️ <b>Ошибка манифеста</b>
+
+Кошелёк отклонил манифест этого бота."""
 
 connect_wallet_failed = """
 ⏳ <b>Не удалось подключить кошелёк</b>
@@ -290,11 +295,6 @@ welcome_to_chat_no_tokens = "https://raw.githubusercontent.com/nessshon/tontoken
 deny_access = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
 user_kicked = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
 deny_access_no_tokens = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
-connect_wallet_rejected = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
-connect_wallet_proof_wrong = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
-connect_wallet_timeout = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
-connect_wallet_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
-connect_wallet_wrong_network = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
 check_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
 chat_rights_missing = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
 chat_rights_restored = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"

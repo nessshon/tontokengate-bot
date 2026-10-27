@@ -7,9 +7,10 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
+from aiogram_tonconnect import TonProof, setup_tonconnect
 from redis.asyncio import Redis
-from ton_connect import AppWalletsLoader, Event, MemoryStorage, TonConnect
-from ton_core import load_json
+from ton_connect import AppWalletsLoader
+from ton_core import NetworkGlobalID, load_json
 
 from .bot.commands import (
     bot_admin_commands_delete,
@@ -18,7 +19,7 @@ from .bot.commands import (
     bot_commands_setup,
 )
 from .bot.handlers import include_routers
-from .bot.handlers.private.wallet import manifest_domain, on_connect, on_error
+from .bot.handlers.private.wallet import PROOF_TTL, WalletView, manifest_domain, proof_secret
 from .bot.middlewares import register_middlewares
 from .bot.middlewares.retry_after import RetryMiddleware
 from .config import Config, load_config
@@ -50,13 +51,11 @@ async def on_shutdown(
     bot: Bot,
     config: Config,
     storage: Storage,
-    tonconnect: TonConnect,
 ) -> None:
     checks: asyncio.Task[None] = dispatcher["checks"]
     checks.cancel()
     with suppress(asyncio.CancelledError):
         await checks
-    await tonconnect.close_all()
     admins_ids = await storage.admin_ids(config.bot.ADMIN_ID)
     await bot_commands_delete(bot)
     await bot_admin_commands_delete(bot, admins_ids)
@@ -98,16 +97,28 @@ async def main() -> None:
         manifest = await asyncio.to_thread(load_json, config.MANIFEST_URL)
     except RuntimeError as ex:
         raise ValueError(f"MANIFEST_URL is not readable, put the manifest where the bot can load it: {ex}") from ex
-    dp["proof_domain"] = manifest_domain(config.MANIFEST_URL, manifest)
+    proof_domain = manifest_domain(config.MANIFEST_URL, manifest)
 
-    tonconnect = dp["tonconnect"] = TonConnect(MemoryStorage(), config.MANIFEST_URL, wallets, dispatcher=dp, bot=bot)
-    tonconnect.register(Event.CONNECT, on_connect)
-    tonconnect.register(Event.ERROR, on_error)
+    ton_proof = TonProof(
+        domain=proof_domain,
+        secret=proof_secret(config.bot.TOKEN),
+        ttl=PROOF_TTL,
+        get_wallet_public_key=indexer.public_key,
+    )
+    setup_tonconnect(
+        dp,
+        bot,
+        manifest_url=config.MANIFEST_URL,
+        view=WalletView(dp["storage"]),
+        wallets=wallets,
+        network=NetworkGlobalID.TESTNET if config.IS_TESTNET else NetworkGlobalID.MAINNET,
+        ton_proof=ton_proof,
+    )
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
-    # Dispatcher registers closing its FSM storage, and with it the shared Redis, before any other shutdown handler
-    dp.shutdown.handlers.insert(0, dp.shutdown.handlers.pop())
+    # Dispatcher registers closing its FSM storage, and with it the shared Redis, first: it goes last
+    dp.shutdown.handlers.append(dp.shutdown.handlers.pop(0))
     register_middlewares(dp)
     include_routers(dp)
 

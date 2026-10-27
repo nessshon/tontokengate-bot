@@ -4,7 +4,6 @@ from aiogram.fsm.state import State, StatesGroup
 class UserState(StatesGroup):
     SELECT_LANGUAGE = State()
     CHANGE_LANGUAGE = State()
-    CONNECT_WALLET = State()
 
     MAIN_MENU = State()
 

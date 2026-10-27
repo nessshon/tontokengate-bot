@@ -1,7 +1,4 @@
-from collections.abc import Sequence
-
-from aiogram.utils.markdown import hcode, hide_link, hlink
-from ton_connect.models.app import AppWallet
+from aiogram.utils.markdown import hcode, hlink
 
 from app.bot import keyboards
 from app.bot.manager import Manager, SendMode
@@ -20,26 +17,6 @@ async def change_language(manager: Manager) -> None:
     text = manager.text_message.get("change_language")
     await manager.send_message(text, reply_markup=keyboards.select_language())
     await manager.state.set_state(UserState.CHANGE_LANGUAGE)
-
-
-async def connect_wallet(
-    manager: Manager,
-    wallets: Sequence[AppWallet],
-    wallet: AppWallet,
-    qr_url: str,
-    link: str,
-) -> None:
-    text = hide_link(qr_url) + manager.text_message.get("connect_wallet").format(wallet_name=wallet.name)
-    reply_markup = keyboards.connect_wallet(manager.text_button, wallets, wallet, link)
-    await manager.send_message(text, reply_markup=reply_markup)
-    await manager.state.update_data(app_wallet=wallet.app_name)
-    await manager.state.set_state(UserState.CONNECT_WALLET)
-
-
-async def connect_wallet_error(manager: Manager, text_key: str) -> None:
-    text = manager.text_message.get(text_key)
-    await manager.send_message(text, reply_markup=keyboards.connect_wallet_error(manager.text_button))
-    await manager.state.set_state(UserState.CONNECT_WALLET)
 
 
 async def main_menu(manager: Manager, send_mode: SendMode = SendMode.EDIT) -> None:

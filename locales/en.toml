@@ -3,7 +3,6 @@ language = "🇬🇧 English"
 [buttons]
 add = "﹢ Add"
 back = "‹ Back"
-retry = "Retry"
 delete = "× Delete"
 confirm = "✓ Confirm"
 connect_wallet = "Connect {wallet_name}"
@@ -16,6 +15,7 @@ tokens_menu = "Tokens"
 edit_min_amount = "Edit minimum amount"
 
 [messages]
+any_wallet = "your wallet"
 loader_text = "⏳"
 
 outdated_text = "..."
@@ -121,21 +121,26 @@ connect_wallet_timeout = """
 
 The connection was not confirmed within 5 minutes.
 
-Tap “Retry” to get a new link."""
+Go back to get a new link."""
 
 connect_wallet_rejected = """
 ✋ <b>Connection declined</b>
 
 You cancelled the request in your wallet.
 
-If you changed your mind, tap “Retry”."""
+If you changed your mind, go back and connect again."""
 
 connect_wallet_wrong_network = """
 🌐 <b>Different network</b>
 
 The wallet is connected to another TON network.
 
-Switch the network in your wallet and tap “Retry”."""
+Switch the network in your wallet and connect again."""
+
+connect_wallet_bad_manifest = """
+⚙️ <b>Manifest error</b>
+
+The wallet rejected the manifest of this bot."""
 
 connect_wallet_failed = """
 ⏳ <b>Could not connect the wallet</b>
@@ -290,11 +295,6 @@ welcome_to_chat_no_tokens = "https://raw.githubusercontent.com/nessshon/tontoken
 deny_access = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
 user_kicked = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
 deny_access_no_tokens = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
-connect_wallet_rejected = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
-connect_wallet_proof_wrong = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/denied.png"
-connect_wallet_timeout = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
-connect_wallet_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
-connect_wallet_wrong_network = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
 check_failed = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/wait.png"
 chat_rights_missing = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/error.png"
 chat_rights_restored = "https://raw.githubusercontent.com/nessshon/tontokengate-bot/main/assets/pictures/granted.png"

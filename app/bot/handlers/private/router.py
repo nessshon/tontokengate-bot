@@ -1,16 +1,15 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.types import CallbackQuery, Message
-from ton_connect import TonConnect
+from aiogram_tonconnect import TonConnectContext
 
-from app.bot.keyboards import LanguageCallback, WalletCallback
+from app.bot.keyboards import LanguageCallback
 from app.bot.manager import Manager, SendMode, safe_delete
 from app.bot.states import UserState
 from app.gate import check_access
 from app.indexer import Indexer
 
 from . import windows
-from .wallet import connect_wallet
 
 router = Router()
 router.message.filter(F.chat.type == "private")
@@ -18,7 +17,9 @@ router.callback_query.filter(F.message.chat.type == "private")
 
 
 @router.message(CommandStart())
-async def start_command(message: Message, manager: Manager) -> None:
+async def start_command(message: Message, manager: Manager, tc: TonConnectContext) -> None:
+    # The new screen replaces the connect one, whose operation would show its end later out of nowhere
+    await tc.cancel()
     await windows.main_menu(manager, send_mode=SendMode.SEND)
     await safe_delete(message)
 
@@ -33,32 +34,12 @@ async def select_language_callback_query(
     _: CallbackQuery,
     callback_data: LanguageCallback,
     manager: Manager,
-    tonconnect: TonConnect,
+    tc: TonConnectContext,
 ) -> None:
     await manager.storage.patch_user(manager.user.id, language_code=callback_data.code)
     manager.set_language(callback_data.code)
     await manager.send_loader_message()
-    await connect_wallet(manager, tonconnect)
-
-
-@router.callback_query(UserState.CONNECT_WALLET, F.data == "back")
-async def connect_wallet_back_callback_query(_: CallbackQuery, manager: Manager) -> None:
-    await windows.select_language(manager)
-
-
-@router.callback_query(UserState.CONNECT_WALLET, F.data == "retry")
-async def connect_wallet_retry_callback_query(_: CallbackQuery, manager: Manager, tonconnect: TonConnect) -> None:
-    await connect_wallet(manager, tonconnect)
-
-
-@router.callback_query(UserState.CONNECT_WALLET, WalletCallback.filter())
-async def connect_wallet_select_callback_query(
-    _: CallbackQuery,
-    callback_data: WalletCallback,
-    manager: Manager,
-    tonconnect: TonConnect,
-) -> None:
-    await connect_wallet(manager, tonconnect, callback_data.app_name)
+    await tc.connect()
 
 
 @router.callback_query(UserState.MAIN_MENU, F.data == "get_access")

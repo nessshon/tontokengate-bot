@@ -4,7 +4,6 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton as Button
 from aiogram.types import InlineKeyboardMarkup as Markup
 from aiogram.utils.keyboard import InlineKeyboardBuilder as Builder
-from ton_connect.models.app import AppWallet
 
 from app.bot.utils import buy_url
 from app.storage import ChatData, TokenData
@@ -13,10 +12,6 @@ from app.texts import SUPPORTED_LANGUAGES, TextButton
 
 class LanguageCallback(CallbackData, prefix="language"):
     code: str
-
-
-class WalletCallback(CallbackData, prefix="wallet"):
-    app_name: str
 
 
 class PageCallback(CallbackData, prefix="page"):
@@ -65,34 +60,6 @@ def select_language() -> Markup:
         width=3,
     )
     return builder.as_markup()
-
-
-def connect_wallet(text_button: TextButton, wallets: Sequence[AppWallet], selected: AppWallet, link: str) -> Markup:
-    builder = Builder()
-    builder.row(Button(text=text_button.get("connect_wallet").format(wallet_name=selected.name), url=link))
-    builder.row(
-        *[
-            Button(
-                text=f"• {wallet.name} •" if wallet.app_name == selected.app_name else wallet.name,
-                callback_data=WalletCallback(app_name=wallet.app_name).pack(),
-            )
-            for wallet in wallets
-        ],
-        width=2,
-    )
-    builder.row(Button(text=text_button.get("back"), callback_data="back"))
-    return builder.as_markup()
-
-
-def connect_wallet_error(text_button: TextButton) -> Markup:
-    return Markup(
-        inline_keyboard=[
-            [
-                Button(text=text_button.get("back"), callback_data="back"),
-                Button(text=text_button.get("retry"), callback_data="retry"),
-            ],
-        ]
-    )
 
 
 def main_menu(text_button: TextButton) -> Markup:

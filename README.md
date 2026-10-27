@@ -10,7 +10,8 @@
 ![TON Token Gate](assets/banner.png)
 
 **TON Token Gate** is a Telegram bot for private chats and channels: it lets in only the holders of your NFT
-collections and jettons and removes members who no longer hold them.
+collections and jettons and removes members who no longer hold them.  
+Try the [demo bot](https://t.me/tontokengate_bot) in Telegram.
 
 **Features**:
 * **Token gating.** NFT collections and jettons, each with its own minimum.
