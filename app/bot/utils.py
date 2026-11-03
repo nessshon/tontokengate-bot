@@ -5,13 +5,13 @@ from datetime import datetime
 from decimal import Decimal
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramNetworkError, TelegramRetryAfter, TelegramServerError
 from aiogram.types import BufferedInputFile, ChatMember, TelegramObject, User
 from aiogram.utils.markdown import hbold, hcode, hlink
 from cachetools import TTLCache
 
 from app.config import DEX_URLS, Config
-from app.indexer import DEFAULT_DECIMALS
+from app.indexer import DEFAULT_DECIMALS, IndexerError
 from app.storage import Storage, TokenData, TokenType
 from app.texts import TextMessage
 
@@ -20,6 +20,8 @@ TONVIEWER_URL = "https://tonviewer.com/"
 MAX_AMOUNT = 2**120
 # The join-request link, approving and declining requests need the first; removing a member needs the second
 BOT_RIGHTS = ("can_invite_users", "can_restrict_members")
+# Toncenter or Telegram failing on their side: only logged, the admin can do nothing about it
+OUTAGES = (IndexerError, TelegramNetworkError, TelegramServerError, TelegramRetryAfter)
 
 _reported: TTLCache[tuple[str, str], None] = TTLCache(maxsize=1_000, ttl=600)
 

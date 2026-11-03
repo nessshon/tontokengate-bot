@@ -9,7 +9,7 @@ from aiogram import Bot, html
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.utils.markdown import hbold
 
-from app.bot.utils import admin_texts, missing_rights, notify_admin, report_exception, rights_text
+from app.bot.utils import OUTAGES, admin_texts, missing_rights, notify_admin, report_exception, rights_text
 from app.config import Config
 from app.indexer import Indexer, raw_address
 from app.storage import ChatData, Storage, TokenData, UserData
@@ -51,6 +51,9 @@ async def run_checks(
                     )
                 await notify_admin(bot, config, text)
             reported = {problem.chat.id for problem in problems}
+        # An outage leaves reported as it was: a chat the admin already knows of is not told again
+        except OUTAGES as ex:
+            logger.warning("Member check skipped: %s", ex)
         except Exception as ex:
             logger.exception("Member check failed")
             with suppress(TelegramAPIError):
@@ -78,6 +81,9 @@ async def check_members(bot: Bot, storage: Storage, indexer: Indexer) -> list[Ch
         try:
             if problem := await check_chat(bot, storage, indexer, chat, tokens):
                 problems.append(problem)
+        # An outage is not the chat's problem: run_checks skips the whole pass
+        except OUTAGES:
+            raise
         except TelegramAPIError as ex:
             logger.warning("Members of chat %s are not checked: %s", chat.id, ex)
             problems.append(ChatProblem(chat, [], ex.message))

@@ -6,7 +6,7 @@ from aiogram.filters import ExceptionTypeFilter
 from aiogram.types import ErrorEvent
 from pydantic_core import PydanticSerializationError
 
-from app.bot.utils import report_exception
+from app.bot.utils import OUTAGES, report_exception
 from app.config import Config
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,11 @@ async def query_too_old(_: ErrorEvent) -> None:
 @router.errors(ExceptionTypeFilter(TelegramForbiddenError), F.exception.message.contains("bot was blocked by the user"))
 async def bot_blocked(_: ErrorEvent) -> None:
     pass
+
+
+@router.errors(ExceptionTypeFilter(*OUTAGES))
+async def outage(event: ErrorEvent) -> None:
+    logger.warning("Update %s failed: %s", event.update.update_id, event.exception)
 
 
 @router.errors()
