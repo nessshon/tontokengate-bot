@@ -60,10 +60,10 @@ Try the [demo bot](https://t.me/tontokengate_bot) in Telegram.
    nano .env
    ```
 
-5. Start the bot, the ready image is downloaded from GitHub:
+5. Build and start the bot:
 
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
 
    Check that it started: `docker compose logs -f bot`.
@@ -75,9 +75,11 @@ Try the [demo bot](https://t.me/tontokengate_bot) in Telegram.
 
 ### Updating
 
+Your own changes in the bot folder, such as the texts in `locales`, stay: `--autostash` puts them back over the update.
+
 ```bash
-docker compose pull
-docker compose up -d
+git pull --autostash
+docker compose up -d --build
 ```
 
 ## Environment Variables Reference

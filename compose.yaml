@@ -1,6 +1,5 @@
 services:
   bot:
-    image: ghcr.io/nessshon/tontokengate-bot:1
     build: .
     container_name: tontokengate-bot
     restart: always

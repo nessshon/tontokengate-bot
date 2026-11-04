@@ -85,7 +85,7 @@ Then check `.env`:
 ### 4. Move the data into Redis
 
 ```bash
-docker compose run --rm -v "$PWD/database.sqlite:/app/database.sqlite:ro" bot python -m upgrade.from_v0 database.sqlite
+docker compose run --build --rm -v "$PWD/database.sqlite:/app/database.sqlite:ro" bot python -m upgrade.from_v0 database.sqlite
 ```
 
 `$PWD` is the current folder: Docker takes a file only by its full path. The script reads `database.sqlite` without
